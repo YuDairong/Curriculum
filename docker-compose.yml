@@ -1,0 +1,97 @@
+version: '3'
+services:
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - 80:80
+    depends_on:
+      - product-catalog-service
+      - user-service
+      - order-service
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+
+  rabbitmq:
+    image: rabbitmq:latest
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - 27017:27017
+    volumes:
+      - ./mongodb-data:/data/db
+
+  postgres_users:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+    ports:
+      - 5432:5432
+    volumes:
+      - ./postgres_users:/var/lib/postgresql/data
+
+  postgres_orders:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+    ports:
+      - 5433:5432
+    volumes:
+      - ./postgres_orders:/var/lib/postgresql/data
+  
+  product-catalog-service:
+    build:
+      context: ./product-catalog-service
+      dockerfile: Dockerfile
+    ports:
+      - 8085:8085
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/mongo
+    restart: always
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_URI=postgresql://postgres:12345678@postgres_users:5432/postgres?sslmode=disable     
+    restart: always
+    ports:
+      - 8086:8086
+    depends_on:
+      - postgres_users
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_URI=postgresql://postgres:12345678@postgres_orders:5432/postgres?sslmode=disable
+      - USER_SERVICE_HOST=user-service
+      - USER_SERVICE_PORT=8086
+      - PRODUCT_SERVICE_HOST=product-catalog-service
+      - PRODUCT_SERVICE_PORT=8085
+      - RABBITMQ_HOST = rabbitmq
+      - RABBITMQ_PORT = 5672
+    restart: always
+    ports:
+      - 8087:8087
+    depends_on:
+      - postgres_orders
+
+volumes:
+  postgres_users:
+  postgres_orders:
+  mongodb-data:
+  nginx.conf:

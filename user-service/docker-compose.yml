@@ -1,0 +1,24 @@
+version: '3'
+services:
+  user_postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data:/var/lib/postgresql/data
+  
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - 8086:8086
+    depends_on:
+      - user_postgres
+    environment:
+      - POSTGRES_URI=postgresql://postgres:12345678@user_postgres:5432/postgres?sslmode=disable
